@@ -1,0 +1,73 @@
+name: Terraform Validation
+
+# Executa o workflow em pushes e pull requests para a branch principal (main ou master)
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  terraform-lint:  
+    name: Checagem de formatação do Terraform
+    runs-on: ubuntu-latest  # Ambiente Linux para rodar o Terraform
+
+    steps:
+      # Step 1: Fazer checkout do código do repositório
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Instalar o Terraform no ambiente de CI
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Install TFLint
+        run: |
+          curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+
+      - name: Run TFLint
+        run: |
+          tflint --recursive --init
+          tflint --recursive
+
+            # Step 4: Executar o terraform fmt para checar formatação
+      - name: Terraform Fmt Check
+        run: | 
+          terraform fmt -check -recursive
+  terraform:
+    name: Terraform Validation
+    runs-on: ubuntu-latest  # Ambiente Linux para rodar o Terraform
+
+    defaults:
+      run:
+        working-directory: ./envs/prod
+
+    steps:
+      # Step 1: Fazer checkout do código do repositório
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: "Configure AWS Credentials"
+        uses: aws-actions/configure-aws-credentials@v4.0.2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      # Step 2: Instalar o Terraform no ambiente de CI
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      # Step 3: Inicializar o Terraform no diretório correto (módulo ou root)
+      - name: Terraform Init
+        run: terraform init
+
+      # Step 4: Validar a configuração do Terraform
+      - name: Terraform Validate
+        run: terraform validate
+      
+      # Step 5: Executar o terraform plan
+      - name: Terraform Plan
+        run: terraform plan -var "tag_deploy=latest"
